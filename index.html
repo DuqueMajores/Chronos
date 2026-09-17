@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Calendário minimalista com tarefas, cronômetros, anotações, fotos e alertas sonoros.">
+  <title>Chronos — Calendário & YouTube Shorts</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div style="display: flex; align-items: center; gap: 24px;">
+      <div>
+        <div class="brand">Chronos</div>
+        <div class="subtitle">Calendário pessoal</div>
+      </div>
+
+      <!-- Navegação por Abas na Topbar -->
+      <nav class="nav-tabs" style="display: flex; gap: 8px;">
+        <button class="tab-btn active" data-tab="tab-calendario">📅 Calendário</button>
+        <button class="tab-btn" data-tab="tab-youtube">🔴 YouTube Shorts</button>
+      </nav>
+    </div>
+
+    <div class="clock-area">
+      <div id="liveDate" class="live-date"></div>
+      <div id="liveClock" class="live-clock"></div>
+    </div>
+
+    <button id="newTaskBtn" class="primary-btn">+ Nova tarefa</button>
+  </header>
+
+  <!-- ABA 1: PROJETO ORIGINAL CHRONOS CALENDÁRIO (INTACTO E EXATO) -->
+  <main id="tab-calendario" class="app-shell tab-content active">
+    <section class="calendar-panel">
+      <div class="calendar-toolbar">
+        <div class="month-nav">
+          <button id="prevMonth" class="icon-btn" aria-label="Mês anterior">‹</button>
+          <h1 id="monthTitle"></h1>
+          <button id="nextMonth" class="icon-btn" aria-label="Próximo mês">›</button>
+          <button id="todayBtn" class="today-btn">Hoje</button>
+        </div>
+        <div id="monthSummary" class="month-summary"></div>
+      </div>
+
+      <div class="weekdays">
+        <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span>
+        <span>Qui</span><span>Sex</span><span>Sáb</span>
+      </div>
+
+      <div id="calendarGrid" class="calendar-grid"></div>
+    </section>
+
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div>
+          <span class="eyebrow">Agenda</span>
+          <h2 id="selectedDateTitle"></h2>
+        </div>
+        <button id="addNoteBtn" class="small-btn">+ Nota</button>
+      </div>
+
+      <div class="section-title">Tarefas do dia</div>
+      <div id="taskList" class="task-list"></div>
+
+      <div class="section-title note-heading">Anotações</div>
+      <div id="notesList" class="notes-list"></div>
+    </aside>
+  </main>
+
+  <!-- ABA 2: CONEXÃO E AGENDAMENTO DE SHORTS NO YOUTUBE (COMPATÍVEL COM GITHUB PAGES) -->
+  <main id="tab-youtube" class="app-shell tab-content hidden" style="grid-template-columns: 1fr;">
+    <section class="calendar-panel" style="max-width: 900px; margin: 0 auto; width: 100%;">
+      <div class="sidebar-header" style="margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 15px;">
+        <div>
+          <span class="eyebrow">Integração YouTube Data API v3</span>
+          <h2>Conexão & Programação de Shorts</h2>
+        </div>
+      </div>
+
+      <!-- Card 1: Autenticação OAuth Client ID -->
+      <div style="background: var(--soft); padding: 20px; border-radius: 14px; margin-bottom: 24px; border: 1px solid var(--line);">
+        <h3 style="margin: 0 0 10px 0; font-size: 16px;">1. Autenticação via Google OAuth 2.0</h3>
+        <p style="color: var(--muted); font-size: 13px; margin-bottom: 15px; line-height: 1.5;">
+          Para publicar no seu canal direto do <strong>GitHub Pages</strong> (100% no navegador sem servidor), informe o Client ID do seu projeto no Google Cloud.
+        </p>
+        
+        <div style="display: grid; gap: 10px; margin-bottom: 15px;">
+          <label style="font-weight: 600; font-size: 12px; color: var(--text);">
+            OAuth Client ID:
+            <input type="text" id="ytClientId" placeholder="Ex: 123456789-abc.apps.googleusercontent.com" style="margin-top: 5px;">
+          </label>
+          <button type="button" id="btnSaveClientId" class="secondary-btn" style="width: fit-content;">Salvar Client ID</button>
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 15px; border-top: 1px solid #e2e4e8;">
+          <span id="ytAuthStatus" style="font-weight: 700; font-size: 13px; color: var(--danger);">Status: Não conectado</span>
+          <button type="button" id="btnConnectYoutube" class="primary-btn">Conectar Conta do YouTube</button>
+        </div>
+      </div>
+
+      <!-- Card 2: Form de Upload do Short -->
+      <div style="background: #fff; padding: 20px; border-radius: 14px; border: 1px solid var(--line);">
+        <h3 style="margin: 0 0 15px 0; font-size: 16px;">2. Enviar e Programar Publicação (.mp4)</h3>
+        
+        <form id="ytUploadForm" style="display: grid; gap: 15px;">
+          <label>
+            Selecione o Vídeo (.mp4)
+            <input type="file" id="ytFile" accept="video/mp4" required>
+          </label>
+
+          <label>
+            Título do Short
+            <input type="text" id="ytTitle" placeholder="Ex: Dica rápida de Albion! #shorts" required maxlength="100">
+          </label>
+
+          <label>
+            Descrição
+            <textarea id="ytDesc" rows="3" placeholder="Insira a descrição do vídeo..."></textarea>
+          </label>
+
+          <label>
+            Tags (separadas por vírgula)
+            <input type="text" id="ytTags" placeholder="shorts, albion, dicas">
+          </label>
+
+          <label>
+            Data e Hora de Publicação Automática (publishAt)
+            <input type="datetime-local" id="ytPublishAt" required>
+            <small style="color: var(--muted); font-size: 11px; margin-top: 4px;">
+              O vídeo é enviado como <strong>Privado</strong> com o parâmetro <code>publishAt</code>. O próprio YouTube publicará automaticamente no horário programado.
+            </small>
+          </label>
+
+          <button type="submit" id="btnSubmitShort" class="primary-btn" style="background: #10b981; margin-top: 10px;">
+            Enviar e Programar Short
+          </button>
+        </form>
+
+        <div id="ytUploadResult" style="margin-top: 15px;"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de tarefa (Original) -->
+  <div id="taskModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Planejamento</span>
+          <h2 id="taskModalTitle">Nova tarefa</h2>
+        </div>
+        <button class="close-btn" data-close="taskModal">×</button>
+      </div>
+
+      <form id="taskForm">
+        <input type="hidden" id="taskId">
+        <label>
+          Título
+          <input id="taskTitle" required maxlength="100" placeholder="Ex.: Estudar JavaScript">
+        </label>
+
+        <div class="form-row">
+          <label>
+            Data
+            <input id="taskDate" type="date" required>
+          </label>
+          <label>
+            Horário de início
+            <input id="taskTime" type="time" required>
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label>
+            Duração
+            <select id="taskDuration">
+              <option value="5">5 min</option>
+              <option value="10">10 min</option>
+              <option value="15">15 min</option>
+              <option value="20">20 min</option>
+              <option value="25">25 min</option>
+              <option value="30" selected>30 min</option>
+              <option value="45">45 min</option>
+              <option value="60">1 hora</option>
+              <option value="90">1h30</option>
+              <option value="120">2 horas</option>
+              <option value="180">3 horas</option>
+            </select>
+          </label>
+          <label>
+            Avisar antes
+            <select id="taskReminder">
+              <option value="0">Na hora</option>
+              <option value="1">1 min antes</option>
+              <option value="5" selected>5 min antes</option>
+              <option value="10">10 min antes</option>
+              <option value="15">15 min antes</option>
+              <option value="30">30 min antes</option>
+            </select>
+          </label>
+        </div>
+
+        <label>
+          Detalhes
+          <textarea id="taskDetails" rows="3" maxlength="500" placeholder="Observações da tarefa..."></textarea>
+        </label>
+
+        <div class="modal-actions">
+          <button type="button" id="deleteTaskBtn" class="danger-btn hidden">Excluir</button>
+          <div class="action-right">
+            <button type="button" class="secondary-btn" data-close="taskModal">Cancelar</button>
+            <button type="submit" class="primary-btn">Salvar tarefa</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de anotação (Original) -->
+  <div id="noteModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">Anotação</span>
+          <h2>Adicionar nota</h2>
+        </div>
+        <button class="close-btn" data-close="noteModal">×</button>
+      </div>
+
+      <form id="noteForm">
+        <label>
+          Texto
+          <textarea id="noteText" rows="5" maxlength="1000" placeholder="Escreva uma anotação para este dia..."></textarea>
+        </label>
+
+        <label>
+          Foto
+          <input id="noteImage" type="file" accept="image/*">
+        </label>
+
+        <div id="imagePreview" class="image-preview hidden"></div>
+
+        <div class="modal-actions">
+          <div></div>
+          <div class="action-right">
+            <button type="button" class="secondary-btn" data-close="noteModal">Cancelar</button>
+            <button type="submit" class="primary-btn">Adicionar nota</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal de cronômetro (Original) -->
+  <div id="timerModal" class="modal hidden">
+    <div class="timer-card">
+      <button class="close-btn timer-close" data-close="timerModal">×</button>
+      <span class="eyebrow">Tarefa em andamento</span>
+      <h2 id="timerTaskTitle"></h2>
+      <div id="timerDisplay" class="timer-display">00:00:00</div>
+      <div class="timer-meta">
+        <span id="timerEndText"></span>
+      </div>
+      <div class="progress-track">
+        <div id="timerProgress" class="progress-fill"></div>
+      </div>
+      <button id="timerCloseBtn" class="secondary-btn">Fechar</button>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Google Identity Services client-side -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="script.js"></script>
+</body>
+</html>
