@@ -499,10 +499,13 @@ $("ytUploadForm")?.addEventListener("submit", async (e) => {
     return;
   }
 
-  const publishDateObj = new Date(publishAtRaw);
-  const publishAtISO = publishDateObj.toISOString();
+  // Determina se a publicação é imediata ou agendada
+  const isScheduled = Boolean(publishAtRaw);
+  const publishDateObj = isScheduled ? new Date(publishAtRaw) : new Date();
+  const publishAtISO = isScheduled ? publishDateObj.toISOString() : undefined;
+  const privacyStatus = isScheduled ? "private" : "public";
+
   const resultDiv = $("ytUploadResult");
-  
   resultDiv.innerHTML = '<p style="color: var(--text); font-weight: 600;">Enviando vídeo para o YouTube...</p>';
 
   const metadata = {
@@ -513,8 +516,8 @@ $("ytUploadForm")?.addEventListener("submit", async (e) => {
       categoryId: "22"
     },
     status: {
-      privacyStatus: "private",
-      publishAt: publishAtISO,
+      privacyStatus,
+      ...(publishAtISO && { publishAt: publishAtISO }),
       selfDeclaredMadeForKids: false
     }
   };
@@ -547,11 +550,13 @@ $("ytUploadForm")?.addEventListener("submit", async (e) => {
       const formattedTime = publishDateObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const targetIsoDate = toISODate(publishDateObj);
 
-      // Adiciona o agendamento nas Anotações do dia correspondente
+      const statusTag = isScheduled ? "[YouTube Short Agendado]" : "[YouTube Short Publicado]";
+
+      // Registra automaticamente a anotação na data específica no Calendário
       state.notes.push({
         id: uid("note"),
         date: targetIsoDate,
-        text: `🎬 [YouTube Short Agendado]
+        text: `🎬 ${statusTag}
 Título: ${title}
 Horário: ${formattedTime}
 ID: ${resData.id}`,
@@ -562,13 +567,13 @@ ID: ${resData.id}`,
       renderAll();
 
       resultDiv.innerHTML = `<div style="background: #ecfdf5; color: #065f46; padding: 14px; border-radius: 10px; font-size: 13px; border: 1px solid #a7f3d0;">
-        <strong>✅ Short enviado e agendado!</strong><br>
+        <strong>✅ Short ${isScheduled ? "enviado e agendado" : "postado com sucesso"}!</strong><br>
         <strong>Vídeo:</strong> ${escapeHtml(title)}<br>
-        <strong>Agendado para:</strong> ${formattedDate} às ${formattedTime}<br>
+        <strong>Data:</strong> ${formattedDate} às ${formattedTime}<br>
         <em>Nota registrada automaticamente nas anotações do dia!</em>
       </div>`;
 
-      toast("Short agendado e nota registrada com sucesso!");
+      toast(`Short ${isScheduled ? "agendado" : "postado"} e nota registrada com sucesso!`);
       $("ytUploadForm").reset();
     } else {
       throw new Error(resData.error?.message || "Erro durante o upload.");
