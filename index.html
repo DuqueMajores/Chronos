@@ -14,23 +14,20 @@
         <div class="brand">Chronos</div>
         <div class="subtitle">Calendário pessoal</div>
       </div>
-
       <!-- Navegação por Abas na Topbar -->
       <nav class="nav-tabs" style="display: flex; gap: 8px;">
-        <button class="tab-btn active" data-tab="tab-calendario">📅 Calendário</button>
-        <button class="tab-btn" data-tab="tab-youtube">🔴 YouTube Shorts</button>
+        <button class="tab-btn active" data-tab="tab-calendario">🗓️ Calendário</button>
+        <button class="tab-btn" data-tab="tab-youtube">🎬 YouTube Shorts</button>
       </nav>
     </div>
-
     <div class="clock-area">
       <div id="liveDate" class="live-date"></div>
       <div id="liveClock" class="live-clock"></div>
     </div>
-
     <button id="newTaskBtn" class="primary-btn">+ Nova tarefa</button>
   </header>
 
-  <!-- ABA 1: PROJETO ORIGINAL CHRONOS CALENDÁRIO (INTACTO E EXATO) -->
+  <!-- ABA 1: PROJETO ORIGINAL CHRONOS CALENDÁRIO -->
   <main id="tab-calendario" class="app-shell tab-content active">
     <section class="calendar-panel">
       <div class="calendar-toolbar">
@@ -42,12 +39,10 @@
         </div>
         <div id="monthSummary" class="month-summary"></div>
       </div>
-
       <div class="weekdays">
         <span>Dom</span><span>Seg</span><span>Ter</span><span>Qua</span>
         <span>Qui</span><span>Sex</span><span>Sáb</span>
       </div>
-
       <div id="calendarGrid" class="calendar-grid"></div>
     </section>
 
@@ -68,81 +63,88 @@
     </aside>
   </main>
 
-  <!-- ABA 2: CONEXÃO E AGENDAMENTO DE SHORTS NO YOUTUBE (COMPATÍVEL COM GITHUB PAGES) -->
-  <main id="tab-youtube" class="app-shell tab-content hidden" style="grid-template-columns: 1fr;">
-    <section class="calendar-panel" style="max-width: 900px; margin: 0 auto; width: 100%;">
-      <div class="sidebar-header" style="margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 15px;">
+  <!-- ABA 2: CONEXÃO E AGENDAMENTO DE SHORTS NO YOUTUBE -->
+  <main id="tab-youtube" class="app-shell tab-content hidden" style="grid-template-columns: minmax(0, 1fr) 380px;">
+    <!-- Formulário Principal -->
+    <section class="calendar-panel">
+      <div class="sidebar-header" style="margin-bottom: 24px; border-bottom: 1px solid var(--line); padding-bottom: 16px;">
         <div>
-          <span class="eyebrow">Integração YouTube Data API v3</span>
-          <h2>Conexão & Programação de Shorts</h2>
+          <span class="eyebrow">YouTube Data API v3</span>
+          <h2>Publicar & Programar Short</h2>
         </div>
       </div>
 
-      <!-- Card 1: Autenticação OAuth Client ID -->
-      <div style="background: var(--soft); padding: 20px; border-radius: 14px; margin-bottom: 24px; border: 1px solid var(--line);">
-        <h3 style="margin: 0 0 10px 0; font-size: 16px;">1. Autenticação via Google OAuth 2.0</h3>
-        <p style="color: var(--muted); font-size: 13px; margin-bottom: 15px; line-height: 1.5;">
-          Para publicar no seu canal direto do <strong>GitHub Pages</strong> (100% no navegador sem servidor), informe o Client ID do seu projeto no Google Cloud.
-        </p>
-        
-        <div style="display: grid; gap: 10px; margin-bottom: 15px;">
-          <label style="font-weight: 600; font-size: 12px; color: var(--text);">
-            OAuth Client ID:
-            <input type="text" id="ytClientId" placeholder="Ex: 123456789-abc.apps.googleusercontent.com" style="margin-top: 5px;">
-          </label>
-          <button type="button" id="btnSaveClientId" class="secondary-btn" style="width: fit-content;">Salvar Client ID</button>
-        </div>
+      <form id="ytUploadForm" class="yt-form">
+        <label>
+          Vídeo (.mp4)
+          <input type="file" id="ytFile" accept="video/mp4" required>
+        </label>
 
-        <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 15px; border-top: 1px solid #e2e4e8;">
-          <span id="ytAuthStatus" style="font-weight: 700; font-size: 13px; color: var(--danger);">Status: Não conectado</span>
-          <button type="button" id="btnConnectYoutube" class="primary-btn">Conectar Conta do YouTube</button>
-        </div>
-      </div>
+        <label>
+          Título do Short
+          <input type="text" id="ytTitle" placeholder="Ex: Dica rápida de Albion! #shorts" required maxlength="100">
+        </label>
 
-      <!-- Card 2: Form de Upload do Short -->
-      <div style="background: #fff; padding: 20px; border-radius: 14px; border: 1px solid var(--line);">
-        <h3 style="margin: 0 0 15px 0; font-size: 16px;">2. Enviar e Programar Publicação (.mp4)</h3>
-        
-        <form id="ytUploadForm" style="display: grid; gap: 15px;">
-          <label>
-            Selecione o Vídeo (.mp4)
-            <input type="file" id="ytFile" accept="video/mp4" required>
-          </label>
+        <label>
+          Descrição
+          <textarea id="ytDesc" rows="3" placeholder="Insira a descrição do vídeo..."></textarea>
+        </label>
 
-          <label>
-            Título do Short
-            <input type="text" id="ytTitle" placeholder="Ex: Dica rápida de Albion! #shorts" required maxlength="100">
-          </label>
-
-          <label>
-            Descrição
-            <textarea id="ytDesc" rows="3" placeholder="Insira a descrição do vídeo..."></textarea>
-          </label>
-
+        <div class="form-row">
           <label>
             Tags (separadas por vírgula)
             <input type="text" id="ytTags" placeholder="shorts, albion, dicas">
           </label>
-
           <label>
-            Data e Hora de Publicação Automática (publishAt)
+            Data e Hora de Publicação (publishAt)
             <input type="datetime-local" id="ytPublishAt" required>
-            <small style="color: var(--muted); font-size: 11px; margin-top: 4px;">
-              O vídeo é enviado como <strong>Privado</strong> com o parâmetro <code>publishAt</code>. O próprio YouTube publicará automaticamente no horário programado.
-            </small>
           </label>
+        </div>
 
-          <button type="submit" id="btnSubmitShort" class="primary-btn" style="background: #10b981; margin-top: 10px;">
-            Enviar e Programar Short
-          </button>
-        </form>
+        <small style="color: var(--muted); font-size: 11px; margin-top: -6px; display: block;">
+          O vídeo será enviado como <strong>Privado</strong> com o parâmetro <code>publishAt</code>. O YouTube o tornará público automaticamente no horário programado.
+        </small>
 
-        <div id="ytUploadResult" style="margin-top: 15px;"></div>
-      </div>
+        <button type="submit" id="btnSubmitShort" class="primary-btn" style="background: #e53e3e; margin-top: 10px;">
+          Enviar e Programar Short
+        </button>
+      </form>
+
+      <div id="ytUploadResult" style="margin-top: 20px;"></div>
     </section>
+
+    <!-- Lateral: Autenticação & Instruções -->
+    <aside class="sidebar">
+      <div class="sidebar-header" style="margin-bottom: 16px;">
+        <div>
+          <span class="eyebrow">Conexão Google</span>
+          <h2>Autenticação</h2>
+        </div>
+      </div>
+
+      <div class="yt-auth-card">
+        <p style="color: var(--muted); font-size: 12px; line-height: 1.5; margin-bottom: 12px;">
+          Informe seu Client ID do Google Cloud para conectar ao YouTube via navegador (GitHub Pages).
+        </p>
+
+        <label style="font-weight: 700; font-size: 11px; color: var(--muted); display: grid; gap: 6px; margin-bottom: 12px;">
+          OAuth Client ID:
+          <input type="text" id="ytClientId" placeholder="123456789-abc.apps.googleusercontent.com">
+        </label>
+
+        <button type="button" id="btnSaveClientId" class="secondary-btn" style="width: 100%; margin-bottom: 12px;">
+          Salvar Client ID
+        </button>
+
+        <div style="border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 10px;">
+          <span id="ytAuthStatus" style="font-weight: 700; font-size: 12px; color: var(--danger);">Status: Não conectado</span>
+          <button type="button" id="btnConnectYoutube" class="primary-btn" style="width: 100%;">Conectar YouTube</button>
+        </div>
+      </div>
+    </aside>
   </main>
 
-  <!-- Modal de tarefa (Original) -->
+  <!-- Modal de tarefa -->
   <div id="taskModal" class="modal hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -188,6 +190,7 @@
               <option value="180">3 horas</option>
             </select>
           </label>
+
           <label>
             Avisar antes
             <select id="taskReminder">
@@ -217,7 +220,7 @@
     </div>
   </div>
 
-  <!-- Modal de anotação (Original) -->
+  <!-- Modal de anotação -->
   <div id="noteModal" class="modal hidden">
     <div class="modal-card">
       <div class="modal-header">
@@ -252,14 +255,14 @@
     </div>
   </div>
 
-  <!-- Modal de cronômetro (Original) -->
+  <!-- Modal de cronômetro -->
   <div id="timerModal" class="modal hidden">
     <div class="timer-card">
       <button class="close-btn timer-close" data-close="timerModal">×</button>
       <span class="eyebrow">Tarefa em andamento</span>
       <h2 id="timerTaskTitle"></h2>
       <div id="timerDisplay" class="timer-display">00:00:00</div>
-      <div class="timer-meta">
+      <div id="timerMeta" class="timer-meta">
         <span id="timerEndText"></span>
       </div>
       <div class="progress-track">

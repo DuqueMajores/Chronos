@@ -56,7 +56,6 @@ function taskEndDate(task) {
 function renderCalendar() {
   const year = state.viewDate.getFullYear();
   const month = state.viewDate.getMonth();
-
   $("monthTitle").textContent = state.viewDate.toLocaleDateString("pt-BR", {month:"long", year:"numeric"});
 
   const first = new Date(year, month, 1);
@@ -87,7 +86,6 @@ function renderCalendar() {
     const cell = document.createElement("div");
     cell.className = `day ${outside ? "outside" : ""} ${isToday ? "today" : ""} ${selected ? "selected" : ""}`;
     cell.dataset.date = iso;
-
     cell.innerHTML = `
       <div class="day-number">${date.getDate()}</div>
       <div class="day-items">
@@ -138,11 +136,11 @@ function renderSidebar() {
       <button class="task-check ${t.completed ? "checked" : ""}" data-check="${t.id}" aria-label="Concluir"></button>
       <div>
         <div class="task-name">${escapeHtml(t.title)}</div>
-        <div class="task-info">${t.time} · ${formatDuration(t.duration)}${t.details ? " · " + escapeHtml(t.details) : ""}</div>
+        <div class="task-info">${t.time} • ${formatDuration(t.duration)}${t.details ? " • " + escapeHtml(t.details) : ""}</div>
       </div>
       <div class="task-actions">
         <button class="task-action" data-start="${t.id}" title="Iniciar cronômetro">▶</button>
-        <button class="task-action" data-edit="${t.id}" title="Editar">⋯</button>
+        <button class="task-action" data-edit="${t.id}" title="Editar">✏️</button>
       </div>
     </div>
   `).join("") : `<div class="empty">Nenhuma tarefa para este dia.</div>`;
@@ -166,7 +164,7 @@ function renderSidebar() {
   const notes = state.notes.filter(n => n.date === state.selectedDate);
   $("notesList").innerHTML = notes.length ? notes.map(n => `
     <article class="note">
-      <button class="note-delete" data-note-delete="${n.id}" title="Excluir nota">×</button>
+      <button class="note-delete" data-note-delete="${n.id}" title="Excluir nota">✕</button>
       ${n.text ? `<p>${escapeHtml(n.text)}</p>` : ""}
       ${n.image ? `<img src="${n.image}" alt="Foto da anotação">` : ""}
     </article>
@@ -223,7 +221,6 @@ function hideModal(id) { $(id).classList.add("hidden"); }
 
 $("taskForm").addEventListener("submit", e => {
   e.preventDefault();
-
   const id = $("taskId").value;
   const data = {
     id: id || uid("task"),
@@ -263,19 +260,16 @@ $("deleteTaskBtn").addEventListener("click", () => {
 $("noteForm").addEventListener("submit", e => {
   e.preventDefault();
   const text = $("noteText").value.trim();
-
   if (!text && !state.previewImage) {
     toast("Escreva algo ou escolha uma foto.");
     return;
   }
-
   state.notes.push({
     id: uid("note"),
     date: state.selectedDate,
     text,
     image: state.previewImage
   });
-
   saveState(); hideModal("noteModal"); renderAll();
   toast("Anotação adicionada.");
 });
@@ -283,7 +277,6 @@ $("noteForm").addEventListener("submit", e => {
 $("noteImage").addEventListener("change", e => {
   const file = e.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = () => {
     state.previewImage = reader.result;
@@ -325,7 +318,6 @@ $("timerCloseBtn").addEventListener("click", () => hideModal("timerModal"));
 
 function startTimer(task) {
   if (!task) return;
-
   state.activeTimerTaskId = task.id;
   $("timerTaskTitle").textContent = task.title;
   $("timerEndText").textContent = `Fim previsto às ${formatTime(taskEndDate(task))}`;
@@ -438,7 +430,7 @@ setInterval(() => {
   saveState();
 }, 1000 * 60 * 60);
 
-// --- CÓDIGO ADICIONADO: GERENCIAMENTO DE ABAS E YOUTUBE SHORTS ---
+// --- GERENCIAMENTO DE ABAS E YOUTUBE SHORTS ---
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -491,7 +483,6 @@ $("btnConnectYoutube")?.addEventListener("click", () => {
 
 $("ytUploadForm")?.addEventListener("submit", async (e) => {
   e.preventDefault();
-
   if (!ytAccessToken) {
     toast("Conecte sua conta do YouTube primeiro.");
     return;
@@ -508,8 +499,10 @@ $("ytUploadForm")?.addEventListener("submit", async (e) => {
     return;
   }
 
-  const publishAtISO = new Date(publishAtRaw).toISOString();
+  const publishDateObj = new Date(publishAtRaw);
+  const publishAtISO = publishDateObj.toISOString();
   const resultDiv = $("ytUploadResult");
+  
   resultDiv.innerHTML = '<p style="color: var(--text); font-weight: 600;">Enviando vídeo para o YouTube...</p>';
 
   const metadata = {
@@ -541,7 +534,6 @@ $("ytUploadForm")?.addEventListener("submit", async (e) => {
     if (!initRes.ok) throw new Error("Erro na conexão inicial com o YouTube API.");
 
     const uploadUrl = initRes.headers.get("Location");
-
     const uploadRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": file.type },
@@ -551,18 +543,39 @@ $("ytUploadForm")?.addEventListener("submit", async (e) => {
     const resData = await uploadRes.json();
 
     if (uploadRes.ok) {
-      resultDiv.innerHTML = `<div style="background: #ecfdf5; color: #065f46; padding: 12px; border-radius: 8px; font-size: 13px;">
-        <strong>✅ Short enviado com sucesso!</strong><br>
-        Video ID: <code>${resData.id}</code><br>
-        Agendado para: ${new Date(publishAtISO).toLocaleString("pt-BR")}
+      const formattedDate = publishDateObj.toLocaleDateString("pt-BR");
+      const formattedTime = publishDateObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const targetIsoDate = toISODate(publishDateObj);
+
+      // Adiciona o agendamento nas Anotações do dia correspondente
+      state.notes.push({
+        id: uid("note"),
+        date: targetIsoDate,
+        text: `🎬 [YouTube Short Agendado]
+Título: ${title}
+Horário: ${formattedTime}
+ID: ${resData.id}`,
+        image: null
+      });
+
+      saveState();
+      renderAll();
+
+      resultDiv.innerHTML = `<div style="background: #ecfdf5; color: #065f46; padding: 14px; border-radius: 10px; font-size: 13px; border: 1px solid #a7f3d0;">
+        <strong>✅ Short enviado e agendado!</strong><br>
+        <strong>Vídeo:</strong> ${escapeHtml(title)}<br>
+        <strong>Agendado para:</strong> ${formattedDate} às ${formattedTime}<br>
+        <em>Nota registrada automaticamente nas anotações do dia!</em>
       </div>`;
-      toast("Short programado com sucesso!");
+
+      toast("Short agendado e nota registrada com sucesso!");
+      $("ytUploadForm").reset();
     } else {
       throw new Error(resData.error?.message || "Erro durante o upload.");
     }
   } catch (err) {
-    resultDiv.innerHTML = `<div style="background: #fef2f2; color: #991b1b; padding: 12px; border-radius: 8px; font-size: 13px;">
-      <strong>❌ Falha no upload:</strong> ${err.message}
+    resultDiv.innerHTML = `<div style="background: #fef2f2; color: #991b1b; padding: 14px; border-radius: 10px; font-size: 13px; border: 1px solid #fecaca;">
+      <strong>⚠️ Falha no upload:</strong> ${escapeHtml(err.message)}
     </div>`;
   }
 });
