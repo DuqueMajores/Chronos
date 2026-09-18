@@ -656,7 +656,8 @@ export class ShortEditorUI {
                 const safeTitle = title.replace(/[\\/:*?"<>|]/g, '-').trim() || 'Meu Short';
 
                 downloadLink.href = objectUrl;
-                downloadLink.download = `${safeTitle}.mp4`;
+                const extension = file.type.includes('mp4') ? 'mp4' : 'webm';
+                downloadLink.download = `${safeTitle}.${extension}`;
                 downloadLink.style.display = 'none';
                 document.body.appendChild(downloadLink);
                 downloadLink.click();
