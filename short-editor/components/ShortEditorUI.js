@@ -4,6 +4,7 @@ import { VideoRenderer } from '../services/VideoRenderer.js';
 import { StorageManager } from '../services/StorageManager.js';
 import { ProcessingManager } from '../services/ProcessingManager.js';
 import { ShortProject, ShortSegment } from '../models/ShortProject.js';
+
 export class ShortEditorUI {
     constructor(containerId) {
         this.container = document.getElementById(containerId);
@@ -15,6 +16,7 @@ export class ShortEditorUI {
         this.videoDuration = 0;
         this.init();
     }
+
     async init() {
         try {
             await this.storage.init();
@@ -37,7 +39,6 @@ export class ShortEditorUI {
         return { label: '💡 Normal', bg: '#3b82f6' };
     }
 
-    /* STREAMING_CHUNK:Rendering responsive centered HTML layout and CSS styles... */
     renderLayout() {
         this.container.innerHTML = `
         <div class="short-editor-wrapper">
@@ -98,7 +99,6 @@ export class ShortEditorUI {
 
                 <div class="action-buttons">
                     <button id="btn-download" class="btn-action btn-green">Baixar</button>
-                    
                 </div>
             </div>
         </div>
@@ -430,7 +430,6 @@ export class ShortEditorUI {
     `;
     }
 
-    /* STREAMING_CHUNK:Binding event listeners to interface elements... */
     bindEvents() {
         const uploadZone = this.container.querySelector('#upload-zone');
         const fileInput = this.container.querySelector('#video-input');
@@ -489,7 +488,6 @@ export class ShortEditorUI {
         textEnd.textContent = this.formatTime(valEnd);
     }
 
-    /* STREAMING_CHUNK:Handling video uploads and analyzing project metadata... */
     async handleVideoUpload(file) {
         if (!file) return;
         const info = await VideoAnalyzer.analyze(file);
@@ -546,7 +544,6 @@ export class ShortEditorUI {
         return segments;
     }
 
-    /* STREAMING_CHUNK:Rendering list of generated shorts... */
     renderShortsList(segments = []) {
         const list = this.container.querySelector('#shorts-items');
         if (!list) return;
@@ -597,7 +594,6 @@ export class ShortEditorUI {
         });
     }
 
-    /* STREAMING_CHUNK:Processing short rendering, download, and publishing... */
     async exportAndProcess(shouldPublish = false) {
         const video = this.container.querySelector('#editor-video');
         if (!video.src) return alert('Nenhum vídeo carregado.');
@@ -617,8 +613,12 @@ export class ShortEditorUI {
             return alert('O corte selecionado precisa ter no mínimo 15 segundos.');
         }
 
-        const title = this.container.querySelector('#short-title').value || 'Meu Short';
-        const description = this.container.querySelector('#short-desc').value || '';
+        // Leitura segura dos elementos de título e descrição
+        const titleElem = this.container.querySelector('#short-title');
+        const descElem = this.container.querySelector('#short-desc');
+
+        const title = titleElem ? titleElem.value : 'Meu Short';
+        const description = descElem ? descElem.value : '';
 
         const segment = this.activeSegment || new ShortSegment({ start, end });
         segment.title = title;
@@ -628,24 +628,30 @@ export class ShortEditorUI {
         const progressFill = this.container.querySelector('#progress-fill');
         progressBar.style.display = 'block';
 
-        const file = await VideoRenderer.renderShort(video, segment, { cropMode: 'center' }, (pct) => {
-            progressFill.style.width = `${pct}%`;
-        });
-
-        progressBar.style.display = 'none';
-
-        if (shouldPublish) {
-            this.sendToExistingPublishingSystem({
-                file: file,
-                title: segment.title,
-                description: segment.description,
-                type: 'short'
+        try {
+            const file = await VideoRenderer.renderShort(video, segment, { cropMode: 'center' }, (pct) => {
+                progressFill.style.width = `${pct}%`;
             });
-        } else {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(file);
-            a.download = `${title}.mp4`;
-            a.click();
+
+            progressBar.style.display = 'none';
+
+            if (shouldPublish) {
+                this.sendToExistingPublishingSystem({
+                    file: file,
+                    title: segment.title,
+                    description: segment.description,
+                    type: 'short'
+                });
+            } else {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(file);
+                a.download = `${title}.mp4`;
+                a.click();
+            }
+        } catch (error) {
+            progressBar.style.display = 'none';
+            console.error('Erro ao processar o vídeo:', error);
+            alert('Ocorreu um erro ao gerar o vídeo para download.');
         }
     }
 
