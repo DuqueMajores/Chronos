@@ -10,7 +10,10 @@ const state = {
   alertedEnd: JSON.parse(localStorage.getItem("chronos_alerted_end") || "{}"),
   activeTimerTaskId: null,
   timerInterval: null,
-  previewImage: null
+  previewImage: null,
+  taskImage: null,
+  scheduledVideos: JSON.parse(localStorage.getItem("chronos_scheduled_videos") || "[]"),
+  ytConnection: JSON.parse(localStorage.getItem("chronos_yt_connection") || "null")
 };
 
 const $ = id => document.getElementById(id);
@@ -37,6 +40,7 @@ function saveState() {
   localStorage.setItem("chronos_notes", JSON.stringify(state.notes));
   localStorage.setItem("chronos_alerted_start", JSON.stringify(state.alertedStart));
   localStorage.setItem("chronos_alerted_end", JSON.stringify(state.alertedEnd));
+  localStorage.setItem("chronos_scheduled_videos", JSON.stringify(state.scheduledVideos));
 }
 
 function uid(prefix="id") {
@@ -138,6 +142,7 @@ function renderSidebar() {
         <div class="task-name">${escapeHtml(t.title)}</div>
         <div class="task-info">${t.time} • ${formatDuration(t.duration)}${t.details ? " • " + escapeHtml(t.details) : ""}</div>
       </div>
+      ${t.image ? `<img class="task-photo" src="${t.image}" alt="Foto da tarefa">` : ""}
       <div class="task-actions">
         <button class="task-action" data-start="${t.id}" title="Iniciar cronômetro">▶</button>
         <button class="task-action" data-edit="${t.id}" title="Editar">✏️</button>
@@ -203,6 +208,10 @@ function openTaskModal(task=null) {
   $("taskDuration").value = task?.duration || 30;
   $("taskReminder").value = task?.reminder ?? 5;
   $("taskDetails").value = task?.details || "";
+  state.taskImage = task?.image || null;
+  $("taskImage").value = "";
+  $("taskImagePreview").classList.toggle("hidden", !state.taskImage);
+  $("taskImagePreview").innerHTML = state.taskImage ? `<img src="${state.taskImage}" alt="Pré-visualização da tarefa">` : "";
   $("deleteTaskBtn").classList.toggle("hidden", !task);
   showModal("taskModal");
 }
@@ -230,6 +239,7 @@ $("taskForm").addEventListener("submit", e => {
     duration: Number($("taskDuration").value),
     reminder: Number($("taskReminder").value),
     details: $("taskDetails").value.trim(),
+    image: state.taskImage || null,
     completed: false
   };
 
@@ -282,6 +292,18 @@ $("noteImage").addEventListener("change", e => {
     state.previewImage = reader.result;
     $("imagePreview").classList.remove("hidden");
     $("imagePreview").innerHTML = `<img src="${reader.result}" alt="Pré-visualização">`;
+  };
+  reader.readAsDataURL(file);
+});
+
+$("taskImage").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    state.taskImage = reader.result;
+    $("taskImagePreview").classList.remove("hidden");
+    $("taskImagePreview").innerHTML = `<img src="${reader.result}" alt="Pré-visualização da tarefa">`;
   };
   reader.readAsDataURL(file);
 });
@@ -443,151 +465,117 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 let ytAccessToken = null;
+let editingScheduledId = null;
 
-if (localStorage.getItem("chronos_yt_client_id")) {
-  $("ytClientId").value = localStorage.getItem("chronos_yt_client_id");
+function persistConnection(token, expiresIn) {
+  const connection = { connected: true, token, expiresAt: Date.now() + (Number(expiresIn || 3600) * 1000) };
+  state.ytConnection = connection;
+  ytAccessToken = token;
+  localStorage.setItem("chronos_yt_connection", JSON.stringify(connection));
+  updateYoutubeConnectionStatus();
 }
+
+function updateYoutubeConnectionStatus() {
+  const saved = state.ytConnection;
+  const valid = saved && saved.connected && saved.token && saved.expiresAt > Date.now();
+  if (valid) {
+    ytAccessToken = saved.token;
+    $("ytAuthStatus").textContent = "Status: Conectado (sessão salva)";
+    $("ytAuthStatus").style.color = "#10b981";
+  } else {
+    $("ytAuthStatus").textContent = "Status: Não conectado";
+    $("ytAuthStatus").style.color = "var(--danger)";
+  }
+}
+
+if (localStorage.getItem("chronos_yt_client_id")) $("ytClientId").value = localStorage.getItem("chronos_yt_client_id");
+updateYoutubeConnectionStatus();
 
 $("btnSaveClientId")?.addEventListener("click", () => {
   const val = $("ytClientId").value.trim();
-  if (val) {
-    localStorage.setItem("chronos_yt_client_id", val);
-    toast("Client ID salvo com sucesso!");
-  } else {
-    toast("Informe um Client ID válido.");
-  }
+  if (val) { localStorage.setItem("chronos_yt_client_id", val); toast("Client ID salvo com sucesso!"); }
+  else toast("Informe um Client ID válido.");
 });
 
 $("btnConnectYoutube")?.addEventListener("click", () => {
   const clientId = localStorage.getItem("chronos_yt_client_id") || $("ytClientId").value.trim();
-  if (!clientId) {
-    toast("Por favor, insira seu Client ID do Google Cloud.");
-    return;
-  }
-
+  if (!clientId) return toast("Por favor, insira seu Client ID do Google Cloud.");
+  if (!window.google?.accounts?.oauth2) return toast("A autenticação do Google ainda está carregando. Tente novamente.");
   const client = google.accounts.oauth2.initTokenClient({
     client_id: clientId,
     scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly",
-    callback: (response) => {
-      if (response.access_token) {
-        ytAccessToken = response.access_token;
-        $("ytAuthStatus").textContent = "Status: Conectado ao YouTube!";
-        $("ytAuthStatus").style.color = "#10b981";
-        toast("Autenticado no YouTube com sucesso!");
-      }
-    }
+    callback: response => { if (response.access_token) { persistConnection(response.access_token, response.expires_in); toast("Autenticado no YouTube com sucesso!"); } }
   });
-
   client.requestAccessToken();
 });
 
-$("ytUploadForm")?.addEventListener("submit", async (e) => {
+function renderScheduledVideos() {
+  const list = $("scheduledVideosList");
+  if (!list) return;
+  const items = [...state.scheduledVideos].sort((a,b) => new Date(a.publishAt) - new Date(b.publishAt));
+  list.innerHTML = items.length ? items.map(v => {
+    const date = new Date(v.publishAt);
+    const label = date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+    return `<article class="scheduled-card">
+      ${v.thumbnail ? `<img class="scheduled-thumb" src="${v.thumbnail}" alt="Capa de ${escapeHtml(v.title)}">` : `<div class="scheduled-thumb scheduled-placeholder">▶</div>`}
+      <div><div class="scheduled-title">${escapeHtml(v.title)}</div><div class="scheduled-meta">${v.status === "scheduled" ? "Agendado" : "Publicado"} • ${label}<br>${v.madeForKids ? "Conteúdo para crianças" : "Não definido como conteúdo infantil"}</div></div>
+      <div class="scheduled-actions"><button class="task-action" data-scheduled-edit="${v.id}" title="Editar">✏️</button><button class="task-action" data-scheduled-delete="${v.id}" title="Excluir registro">🗑️</button></div>
+    </article>`;
+  }).join("") : `<div class="empty">Nenhum vídeo programado ainda. Envie um Short pela aba YouTube Shorts.</div>`;
+  $("scheduledSummary").innerHTML = `<strong>${items.length}</strong> vídeo${items.length === 1 ? "" : "s"} registrado${items.length === 1 ? "" : "s"} localmente.<br>Os arquivos de vídeo não ficam armazenados no navegador após o upload.`;
+  list.querySelectorAll("[data-scheduled-edit]").forEach(btn => btn.addEventListener("click", () => openScheduledEditor(btn.dataset.scheduledEdit)));
+  list.querySelectorAll("[data-scheduled-delete]").forEach(btn => btn.addEventListener("click", () => { state.scheduledVideos = state.scheduledVideos.filter(v => v.id !== btn.dataset.scheduledDelete); saveState(); renderScheduledVideos(); toast("Registro do vídeo excluído."); }));
+}
+
+function openScheduledEditor(id) {
+  const video = state.scheduledVideos.find(v => v.id === id); if (!video) return;
+  editingScheduledId = id;
+  $("ytTitle").value = video.title; $("ytDesc").value = video.description || ""; $("ytTags").value = (video.tags || []).join(", ");
+  $("ytPublishAt").value = new Date(video.publishAt.getTime ? video.publishAt : new Date(video.publishAt)).toISOString().slice(0,16);
+  $("ytMadeForKids").checked = !!video.madeForKids;
+  document.querySelector('[data-tab="tab-youtube"]').click();
+  toast("Dados carregados. Salve novamente para atualizar o registro.");
+}
+
+$("openYoutubeFromScheduled")?.addEventListener("click", () => document.querySelector('[data-tab="tab-youtube"]').click());
+
+$("ytUploadForm")?.addEventListener("submit", async e => {
   e.preventDefault();
-  if (!ytAccessToken) {
-    toast("Conecte sua conta do YouTube primeiro.");
-    return;
-  }
-
-  const file = $("ytFile").files[0];
-  const title = $("ytTitle").value.trim();
-  const description = $("ytDesc").value.trim();
-  const tags = $("ytTags").value.split(",").map(t => t.trim()).filter(Boolean);
-  const publishAtRaw = $("ytPublishAt").value;
-
-  if (!file) {
-    toast("Selecione um vídeo .mp4 ou .webm.");
-    return;
-  }
-
-  const isSupportedVideo = /^(video\/mp4|video\/webm)$/i.test(file.type)
-    || /\.(mp4|webm)$/i.test(file.name);
-  if (!isSupportedVideo) {
-    toast("O arquivo precisa estar no formato .mp4 ou .webm.");
-    return;
-  }
-
-  // Determina se a publicação é imediata ou agendada
-  const isScheduled = Boolean(publishAtRaw);
-  const publishDateObj = isScheduled ? new Date(publishAtRaw) : new Date();
-  const publishAtISO = isScheduled ? publishDateObj.toISOString() : undefined;
-  const privacyStatus = isScheduled ? "private" : "public";
-
-  const resultDiv = $("ytUploadResult");
-  resultDiv.innerHTML = '<p style="color: var(--text); font-weight: 600;">Enviando vídeo para o YouTube...</p>';
-
-  const metadata = {
-    snippet: {
-      title,
-      description,
-      tags,
-      categoryId: "22"
-    },
-    status: {
-      privacyStatus,
-      ...(publishAtISO && { publishAt: publishAtISO }),
-      selfDeclaredMadeForKids: false
-    }
-  };
-
+  if (!ytAccessToken || !state.ytConnection || state.ytConnection.expiresAt <= Date.now()) { toast("Conecte sua conta do YouTube primeiro."); updateYoutubeConnectionStatus(); return; }
+  const file = $("ytFile").files[0]; const thumbnailFile = $("ytThumbnail").files[0];
+  const title = $("ytTitle").value.trim(); const description = $("ytDesc").value.trim();
+  const existingVideo = editingScheduledId ? state.scheduledVideos.find(v => v.id === editingScheduledId) : null;
+  const tags = $("ytTags").value.split(",").map(t => t.trim()).filter(Boolean); const publishAtRaw = $("ytPublishAt").value;
+  if (!file && !existingVideo) return toast("Selecione um vídeo .mp4 ou .webm.");
+  if (file && !(/^(video\/mp4|video\/webm)$/i.test(file.type) || /\.(mp4|webm)$/i.test(file.name))) return toast("Selecione um vídeo .mp4 ou .webm.");
+  const isScheduled = Boolean(publishAtRaw); const publishDateObj = isScheduled ? new Date(publishAtRaw) : new Date();
+  const publishAtISO = isScheduled ? publishDateObj.toISOString() : undefined; const privacyStatus = isScheduled ? "private" : "public";
+  const resultDiv = $("ytUploadResult"); resultDiv.innerHTML = '<p style="color: var(--text); font-weight: 600;">Enviando vídeo para o YouTube...</p>';
+  const metadata = { snippet: { title, description, tags, categoryId: "22" }, status: { privacyStatus, ...(publishAtISO && { publishAt: publishAtISO }), selfDeclaredMadeForKids: $("ytMadeForKids").checked } };
   try {
-    const initRes = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${ytAccessToken}`,
-        "Content-Type": "application/json; charset=UTF-8",
-        "X-Upload-Content-Length": file.size,
-        "X-Upload-Content-Type": file.type
-      },
-      body: JSON.stringify(metadata)
-    });
-
-    if (!initRes.ok) throw new Error("Erro na conexão inicial com o YouTube API.");
-
-    const uploadUrl = initRes.headers.get("Location");
-    const uploadRes = await fetch(uploadUrl, {
-      method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file
-    });
-
-    const resData = await uploadRes.json();
-
-    if (uploadRes.ok) {
-      const formattedDate = publishDateObj.toLocaleDateString("pt-BR");
-      const formattedTime = publishDateObj.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const targetIsoDate = toISODate(publishDateObj);
-
-      const statusTag = isScheduled ? "[YouTube Short Agendado]" : "[YouTube Short Publicado]";
-
-      // Registra automaticamente a anotação na data específica no Calendário
-      state.notes.push({
-        id: uid("note"),
-        date: targetIsoDate,
-        text: `🎬 ${statusTag}
-Título: ${title}
-Horário: ${formattedTime}
-ID: ${resData.id}`,
-        image: null
-      });
-
-      saveState();
-      renderAll();
-
-      resultDiv.innerHTML = `<div style="background: #ecfdf5; color: #065f46; padding: 14px; border-radius: 10px; font-size: 13px; border: 1px solid #a7f3d0;">
-        <strong>✅ Short ${isScheduled ? "enviado e agendado" : "postado com sucesso"}!</strong><br>
-        <strong>Vídeo:</strong> ${escapeHtml(title)}<br>
-        <strong>Data:</strong> ${formattedDate} às ${formattedTime}<br>
-        <em>Nota registrada automaticamente nas anotações do dia!</em>
-      </div>`;
-
-      toast(`Short ${isScheduled ? "agendado" : "postado"} e nota registrada com sucesso!`);
-      $("ytUploadForm").reset();
+    let resData;
+    if (existingVideo && !file) {
+      const updateRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,status`, { method:"PUT", headers:{ Authorization:`Bearer ${ytAccessToken}`, "Content-Type":"application/json; charset=UTF-8" }, body:JSON.stringify({ id: existingVideo.youtubeId, ...metadata }) });
+      resData = await updateRes.json(); if (!updateRes.ok) throw new Error(resData.error?.message || "Erro ao atualizar o Short.");
     } else {
-      throw new Error(resData.error?.message || "Erro durante o upload.");
+      const initRes = await fetch("https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status", { method:"POST", headers:{ Authorization:`Bearer ${ytAccessToken}`, "Content-Type":"application/json; charset=UTF-8", "X-Upload-Content-Length":file.size, "X-Upload-Content-Type":file.type }, body:JSON.stringify(metadata) });
+      if (!initRes.ok) throw new Error("Erro na conexão inicial com o YouTube API.");
+      const uploadRes = await fetch(initRes.headers.get("Location"), { method:"PUT", headers:{"Content-Type":file.type}, body:file }); resData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(resData.error?.message || "Erro durante o upload.");
     }
-  } catch (err) {
-    resultDiv.innerHTML = `<div style="background: #fef2f2; color: #991b1b; padding: 14px; border-radius: 10px; font-size: 13px; border: 1px solid #fecaca;">
-      <strong>⚠️ Falha no upload:</strong> ${escapeHtml(err.message)}
-    </div>`;
-  }
+    let thumbnail = existingVideo?.thumbnail || null;
+    if (thumbnailFile) {
+      thumbnail = await new Promise(resolve => { const r = new FileReader(); r.onload = () => resolve(r.result); r.readAsDataURL(thumbnailFile); });
+      const thumbRes = await fetch(`https://www.googleapis.com/upload/youtube/v3/thumbnails/set?videoId=${encodeURIComponent(resData.id || existingVideo.youtubeId)}`, { method:"POST", headers:{ Authorization:`Bearer ${ytAccessToken}`, "Content-Type":thumbnailFile.type }, body:thumbnailFile });
+      if (!thumbRes.ok) throw new Error("Short atualizado, mas não foi possível enviar a capa.");
+    }
+    const record = { id: editingScheduledId || uid("scheduled"), youtubeId: resData.id || existingVideo?.youtubeId, title, description, tags, publishAt: publishDateObj.toISOString(), madeForKids: $("ytMadeForKids").checked, thumbnail, status: isScheduled ? "scheduled" : "published", updatedAt: Date.now() };
+    if (editingScheduledId) { const index = state.scheduledVideos.findIndex(v => v.id === editingScheduledId); state.scheduledVideos[index] = record; } else state.scheduledVideos.push(record);
+    editingScheduledId = null; saveState(); renderScheduledVideos();
+    const formatted = publishDateObj.toLocaleString("pt-BR", { dateStyle:"short", timeStyle:"short" });
+    resultDiv.innerHTML = `<div style="background:#ecfdf5;color:#065f46;padding:14px;border-radius:10px;font-size:13px;border:1px solid #a7f3d0;"><strong>✅ Short ${isScheduled ? "enviado e agendado" : "publicado"}!</strong><br><strong>Vídeo:</strong> ${escapeHtml(title)}<br><strong>Data:</strong> ${formatted}<br><em>Também disponível na aba Programados.</em></div>`;
+    toast(`Short ${isScheduled ? "agendado" : "publicado"} com sucesso!`); $("ytUploadForm").reset();
+  } catch (err) { resultDiv.innerHTML = `<div style="background:#fef2f2;color:#991b1b;padding:14px;border-radius:10px;font-size:13px;border:1px solid #fecaca;"><strong>⚠️ Falha no upload:</strong> ${escapeHtml(err.message)}</div>`; }
 });
+
+renderScheduledVideos();
