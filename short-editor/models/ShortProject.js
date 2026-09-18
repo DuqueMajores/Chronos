@@ -7,14 +7,14 @@ export class ShortProject {
         this.width = width;
         this.height = height;
         this.shorts = [];
-        this.settings = { cropMode: 'crop-center', maxDuration: 60 };
+        this.settings = { cropMode: 'smart-center', smartCrop: true, maxDuration: 60 };
         this.createdAt = new Date().toISOString();
         this.updatedAt = new Date().toISOString();
     }
 }
 
 export class ShortSegment {
-    constructor({ id = Date.now().toString(), start = 0, end = 15, title = '', description = '', crop = 'center', zoom = 1, texts = [], captions = [] }) {
+    constructor({ id = Date.now().toString(), start = 0, end = 15, title = '', description = '', crop = 'smart-center', zoom = 1, texts = [], captions = [] }) {
         this.id = id;
         this.start = start;
         this.end = end;

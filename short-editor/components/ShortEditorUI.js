@@ -633,7 +633,11 @@ export class ShortEditorUI {
         progressBar.style.display = 'block';
 
         try {
-            const file = await VideoRenderer.renderShort(video, segment, { cropMode: 'center' }, (pct) => {
+            const file = await VideoRenderer.renderShort(video, segment, {
+                cropMode: 'smart-center',
+                smartCrop: true,
+                sampleCount: 8
+            }, (pct) => {
                 progressFill.style.width = `${pct}%`;
             });
 
