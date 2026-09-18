@@ -44,8 +44,8 @@ export class ShortEditorUI {
             <!-- Painel Esquerdo: Upload, Controles e Lista -->
             <div class="left-panel">
                 <div id="upload-zone">
-                    <p>Arraste seu vídeo aqui ou clique para selecionar (.mp4)</p>
-                    <input type="file" id="video-input" accept="video/mp4,video/*" style="display: none;">
+                    <p>Arraste seu vídeo aqui ou clique para selecionar (.mp4 ou .webm)</p>
+                    <input type="file" id="video-input" accept="video/mp4,video/webm,.mp4,.webm" style="display: none;">
                 </div>
 
                 <div id="video-info"></div>

@@ -57,7 +57,13 @@ export class VideoRenderer {
                 ...audioTracks
             ]);
 
+            // MP4 é tentado primeiro. Chrome/Firefox normalmente não oferecem
+            // MP4 via MediaRecorder, então WebM é usado automaticamente nesses
+            // navegadores sem alterar o conteúdo do vídeo ou do áudio.
             const mimeCandidates = [
+                'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+                'video/mp4;codecs="avc1.4D401F,mp4a.40.2"',
+                'video/mp4',
                 'video/webm;codecs=vp9,opus',
                 'video/webm;codecs=vp8,opus',
                 'video/webm'

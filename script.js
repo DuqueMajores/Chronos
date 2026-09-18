@@ -495,7 +495,14 @@ $("ytUploadForm")?.addEventListener("submit", async (e) => {
   const publishAtRaw = $("ytPublishAt").value;
 
   if (!file) {
-    toast("Selecione um vídeo .mp4.");
+    toast("Selecione um vídeo .mp4 ou .webm.");
+    return;
+  }
+
+  const isSupportedVideo = /^(video\/mp4|video\/webm)$/i.test(file.type)
+    || /\.(mp4|webm)$/i.test(file.name);
+  if (!isSupportedVideo) {
+    toast("O arquivo precisa estar no formato .mp4 ou .webm.");
     return;
   }
 
