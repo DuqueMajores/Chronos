@@ -16,12 +16,42 @@ export class VideoRenderer {
                 return;
             }
 
-            // O canvas fornece o vídeo vertical recortado. A captura do vídeo
-            // original fornece as trilhas de áudio para o arquivo final.
+            // O canvas fornece o vídeo vertical recortado. Primeiro tentamos
+            // capturar o áudio diretamente do elemento de vídeo.
             const canvasStream = canvas.captureStream(30);
             const captureVideo = videoElement.captureStream || videoElement.mozCaptureStream;
             const sourceStream = captureVideo ? captureVideo.call(videoElement) : null;
-            const audioTracks = sourceStream ? sourceStream.getAudioTracks() : [];
+            let audioTracks = sourceStream ? sourceStream.getAudioTracks() : [];
+            let audioContext = null;
+            let audioDestination = null;
+            let audioSource = null;
+
+            // Alguns navegadores não incluem o áudio de arquivos locais em
+            // video.captureStream(). Nesse caso, roteamos o áudio do elemento
+            // por um MediaStreamAudioDestinationNode, que é gravável pelo
+            // MediaRecorder.
+            if (audioTracks.length === 0 && typeof AudioContext !== 'undefined') {
+                try {
+                    audioContext = new AudioContext();
+                    audioSource = audioContext.createMediaElementSource(videoElement);
+                    audioDestination = audioContext.createMediaStreamDestination();
+                    audioSource.connect(audioDestination);
+                    audioSource.connect(audioContext.destination);
+                    audioTracks = audioDestination.stream.getAudioTracks();
+                } catch (error) {
+                    console.warn('Não foi possível capturar o áudio via AudioContext:', error);
+                    audioContext?.close();
+                    audioContext = null;
+                    audioDestination = null;
+                    audioSource = null;
+                }
+            }
+
+            if (audioTracks.length === 0) {
+                canvasStream.getTracks().forEach(track => track.stop());
+                throw new Error('Nenhuma trilha de áudio foi encontrada no vídeo original.');
+            }
+
             const outputStream = new MediaStream([
                 ...canvasStream.getVideoTracks(),
                 ...audioTracks
@@ -55,6 +85,8 @@ export class VideoRenderer {
                 if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
                 canvasStream.getTracks().forEach(track => track.stop());
                 outputStream.getTracks().forEach(track => track.stop());
+                audioSource?.disconnect();
+                audioContext?.close();
                 videoElement.pause();
             };
 
@@ -142,6 +174,9 @@ export class VideoRenderer {
 
             const startRecording = async () => {
                 try {
+                    if (audioContext?.state === 'suspended') {
+                        await audioContext.resume();
+                    }
                     recorder.start(250);
                     await videoElement.play();
                     drawFrame();
