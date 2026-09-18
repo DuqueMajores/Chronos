@@ -1,12 +1,29 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Calendário minimalista com tarefas, cronômetros, anotações, fotos e alertas sonoros.">
+  <meta name="description"
+    content="Calendário minimalista com tarefas, cronômetros, anotações, fotos e alertas sonoros.">
   <title>Chronos — Calendário & YouTube Shorts</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .view-section {
+      display: none;
+    }
+    .view-section.active {
+      display: block;
+    }
+    /* Estilos de navegação ativos */
+    .nav-tabs .tab-btn.active {
+      background-color: #4f46e5;
+      border-color: #6366f1;
+      color: #ffffff;
+    }
+  </style>
 </head>
+
 <body>
   <header class="topbar">
     <div style="display: flex; align-items: center; gap: 24px;">
@@ -16,15 +33,18 @@
       </div>
       <!-- Navegação por Abas na Topbar -->
       <nav class="nav-tabs" style="display: flex; gap: 8px;">
-        <button class="tab-btn active" data-tab="tab-calendario">🗓️ Calendário</button>
-        <button class="tab-btn" data-tab="tab-youtube">🎬 YouTube Shorts</button>
+        <button id="nav-btn-editor" class="tab-btn" data-tab="tab-editor">✂️ Editor de Shorts</button>
+        <button id="nav-btn-youtube" class="tab-btn" data-tab="tab-youtube">🎬 YouTube Shorts</button>
+        <button id="nav-btn-calendario" class="tab-btn active" data-tab="tab-calendario">🗓️ Calendário</button>
       </nav>
     </div>
     <div class="clock-area">
       <div id="liveDate" class="live-date"></div>
       <div id="liveClock" class="live-clock"></div>
     </div>
-    <button id="newTaskBtn" class="primary-btn">+ Nova tarefa</button>
+    <div style="display: flex; gap: 10px;">
+      <button id="newTaskBtn" class="primary-btn">+ Nova tarefa</button>
+    </div>
   </header>
 
   <!-- ABA 1: PROJETO ORIGINAL CHRONOS CALENDÁRIO -->
@@ -67,7 +87,8 @@
   <main id="tab-youtube" class="app-shell tab-content hidden" style="grid-template-columns: minmax(0, 1fr) 380px;">
     <!-- Formulário Principal -->
     <section class="calendar-panel">
-      <div class="sidebar-header" style="margin-bottom: 24px; border-bottom: 1px solid var(--line); padding-bottom: 16px;">
+      <div class="sidebar-header"
+        style="margin-bottom: 24px; border-bottom: 1px solid var(--line); padding-bottom: 16px;">
         <div>
           <span class="eyebrow">YouTube Data API v3</span>
           <h2>Publicar & Programar Short</h2>
@@ -102,7 +123,8 @@
         </div>
 
         <small style="color: var(--muted); font-size: 11px; margin-top: -6px; display: block;">
-          O vídeo será enviado como <strong>Privado</strong> com o parâmetro <code>publishAt</code>. O YouTube o tornará público automaticamente no horário programado.
+          O vídeo será enviado como <strong>Privado</strong> com o parâmetro <code>publishAt</code>. O YouTube o tornará
+          público automaticamente no horário programado.
         </small>
 
         <button type="submit" id="btnSubmitShort" class="primary-btn" style="background: #e53e3e; margin-top: 10px;">
@@ -127,7 +149,8 @@
           Informe seu Client ID do Google Cloud para conectar ao YouTube via navegador (GitHub Pages).
         </p>
 
-        <label style="font-weight: 700; font-size: 11px; color: var(--muted); display: grid; gap: 6px; margin-bottom: 12px;">
+        <label
+          style="font-weight: 700; font-size: 11px; color: var(--muted); display: grid; gap: 6px; margin-bottom: 12px;">
           OAuth Client ID:
           <input type="text" id="ytClientId" placeholder="123456789-abc.apps.googleusercontent.com">
         </label>
@@ -137,11 +160,18 @@
         </button>
 
         <div style="border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 10px;">
-          <span id="ytAuthStatus" style="font-weight: 700; font-size: 12px; color: var(--danger);">Status: Não conectado</span>
-          <button type="button" id="btnConnectYoutube" class="primary-btn" style="width: 100%;">Conectar YouTube</button>
+          <span id="ytAuthStatus" style="font-weight: 700; font-size: 12px; color: var(--danger);">Status: Não
+            conectado</span>
+          <button type="button" id="btnConnectYoutube" class="primary-btn" style="width: 100%;">Conectar
+            YouTube</button>
         </div>
       </div>
     </aside>
+  </main>
+
+  <!-- ABA 3: EDITOR DE SHORTS -->
+  <main id="tab-editor" class="tab-content hidden" style="padding: 20px;">
+    <div id="short-editor-container"></div>
   </main>
 
   <!-- Modal de tarefa -->
@@ -234,7 +264,8 @@
       <form id="noteForm">
         <label>
           Texto
-          <textarea id="noteText" rows="5" maxlength="1000" placeholder="Escreva uma anotação para este dia..."></textarea>
+          <textarea id="noteText" rows="5" maxlength="1000"
+            placeholder="Escreva uma anotação para este dia..."></textarea>
         </label>
 
         <label>
@@ -272,10 +303,55 @@
     </div>
   </div>
 
+  <!-- Áudios e Notificações Existentes -->
+  <audio id="audio-inicio" src="aviso-inicio.mp3"></audio>
+  <audio id="audio-fim" src="aviso-fim.mp3"></audio>
+
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Google Identity Services client-side -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="script.js"></script>
+
+  <!-- Lógica de Controle das Abas e Módulo do Editor de Shorts -->
+  <script type="module">
+    import { ShortEditorUI } from './short-editor/components/ShortEditorUI.js';
+
+    let editorInstance = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const tabButtons = document.querySelectorAll('.tab-btn');
+      const tabContents = document.querySelectorAll('.tab-content');
+
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const targetTabId = button.getAttribute('data-tab');
+
+          // Atualiza visual dos botões
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          button.classList.add('active');
+
+          // Oculta todas as seções de abas
+          tabContents.forEach(content => {
+            content.classList.add('hidden');
+            content.classList.remove('active');
+          });
+
+          // Exibe a aba selecionada
+          const activeContent = document.getElementById(targetTabId);
+          if (activeContent) {
+            activeContent.classList.remove('hidden');
+            activeContent.classList.add('active');
+          }
+
+          // Se for a aba do Editor de Shorts, inicializa-o sob demanda (Lazy Loading)
+          if (targetTabId === 'tab-editor' && !editorInstance) {
+            editorInstance = new ShortEditorUI('short-editor-container');
+          }
+        });
+      });
+    });
+  </script>
 </body>
+
 </html>
